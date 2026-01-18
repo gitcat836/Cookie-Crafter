@@ -6,16 +6,14 @@ from discord.ui import Button, View
 from dotenv import load_dotenv
 import requests
 import random
-import base64
 from io import BytesIO
 
 # Load environment variables
 load_dotenv()
 DISCORD_TOKEN = os.getenv("DISCORD_TOKEN")
-STABILITY_API_KEY = os.getenv("STABILITY_API_KEY")
 
-if STABILITY_API_KEY is None:
-    print("❌ Error: STABILITY_API_KEY not found in .env")
+if DISCORD_TOKEN is None:
+    print("❌ Error: DISCORD_TOKEN not found in .env")
     exit(1)
 
 intents = discord.Intents.default()
@@ -40,20 +38,20 @@ async def on_ready():
 @app_commands.describe(prompt="Describe what image you want")
 async def generate(interaction: Interaction, prompt: str):
     await interaction.response.defer()  # avoid timeout
-    url = "https://api.stability.ai/v1/generation/stable-diffusion-xl-1024-v1-0/text-to-image"
-    headers = {"Authorization": f"Bearer {STABILITY_API_KEY}", "Content-Type": "application/json"}
-    data = {"text_prompts": [{"text": prompt}], "cfg_scale": 7, "clip_guidance_preset": "FAST_BLUE", "height":1024, "width":1024, "samples":1, "steps":30}
     try:
-        response = requests.post(url, headers=headers, json=data)
+        # Pollinations.ai URL construction
+        seed = random.randint(1, 1000000)
+        image_url = f"https://image.pollinations.ai/prompt/{prompt}?width=1024&height=1024&seed={seed}&nologo=true"
+        
+        response = requests.get(image_url)
         response.raise_for_status()
-        result = response.json()
-        image_base64 = result["artifacts"][0]["base64"]
-        image_bytes = BytesIO(base64.b64decode(image_base64))
+        
+        image_bytes = BytesIO(response.content)
         file = discord.File(fp=image_bytes, filename="image.png")
 
-        embed = Embed(title="🎨 Your Generated Image", color=discord.Color.purple())
+        embed = Embed(title="🎨 Your Generated Image", color=discord.Color.teal())
         embed.set_image(url="attachment://image.png")
-        embed.set_footer(text=f"Prompt: {prompt}")
+        embed.set_footer(text=f"Prompt: {prompt} | via Pollinations.ai")
 
         await interaction.followup.send(embed=embed, file=file)
     except Exception as e:
